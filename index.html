@@ -1,0 +1,1422 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#09090b">
+<title>プロキシメーカー</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;700;900&family=Noto+Serif+JP:wght@400;700&display=swap" rel="stylesheet">
+<style>
+*,*::before,*::after{box-sizing:border-box}
+:root{
+  --bg:#09090b; --panel:#17171a; --panel2:#26262b; --line:#3f3f46;
+  --ink:#fafafa; --dim:#a1a1aa; --dim2:#71717a; --accent:#2dd4bf; --danger:#f87171;
+}
+html,body{margin:0;padding:0;height:100%;overscroll-behavior:none}
+body{
+  background:var(--bg); color:var(--ink); font-size:15px;
+  font-family:"Noto Sans JP","Hiragino Kaku Gothic ProN","Yu Gothic",system-ui,sans-serif;
+  -webkit-text-size-adjust:100%; -webkit-tap-highlight-color:transparent;
+}
+#app{display:flex;flex-direction:column;height:100dvh;overflow:hidden;
+  padding-bottom:env(safe-area-inset-bottom)}
+
+/* ── ヘッダ ── */
+header{flex:0 0 auto;display:flex;align-items:center;gap:8px;padding:8px 10px;
+  border-bottom:1px solid var(--panel2)}
+.tabs{display:flex;border:1px solid var(--line);border-radius:8px;overflow:hidden}
+.tabs button{border:0;background:transparent;color:var(--dim);font:inherit;font-size:12px;padding:7px 11px}
+.tabs button.on{background:var(--accent);color:#09090b;font-weight:700}
+.sp{flex:1}
+
+/* ── プレビュー ── */
+#stagewrap{flex:1 1 auto;min-height:0;display:flex;align-items:center;justify-content:center;padding:8px}
+#stage{position:relative;touch-action:none;-webkit-user-select:none;user-select:none}
+#stage canvas{width:100%;height:100%;display:block;border-radius:6px;
+  box-shadow:0 6px 24px rgba(0,0,0,.6);background:#fff}
+.hit{position:absolute;border:1px dashed transparent;border-radius:2px}
+.hit.show{border-color:rgba(161,161,170,.45)}
+.hit.on{border:1.5px solid var(--accent);background:rgba(45,212,191,.14)}
+.grip{position:absolute;width:20px;height:20px;border-radius:50%;background:var(--accent);
+  border:2px solid #09090b}
+.grip.br{right:-10px;bottom:-10px;cursor:se-resize}
+
+/* ── カード一覧 ── */
+#strip{flex:0 0 auto;display:flex;gap:6px;overflow-x:auto;padding:6px 10px;
+  border-top:1px solid var(--panel2);scrollbar-width:none}
+#strip::-webkit-scrollbar{display:none}
+.thumb{flex:0 0 auto;width:46px;height:63px;border-radius:4px;border:2px solid transparent;
+  background:#fff;overflow:hidden;position:relative}
+.thumb.on{border-color:var(--accent)}
+.thumb canvas{width:100%;height:100%;display:block}
+.thumb .n{position:absolute;left:1px;top:0;font-size:9px;color:#000;background:rgba(255,255,255,.75);
+  padding:0 3px;border-radius:0 0 3px 0}
+.addcard{flex:0 0 auto;width:46px;height:63px;border-radius:4px;border:1px dashed var(--line);
+  background:transparent;color:var(--dim);font-size:20px}
+
+/* ── 項目送りバー ── */
+#navbar{flex:0 0 auto;display:flex;align-items:center;gap:6px;padding:6px 8px;
+  border-top:1px solid var(--panel2);background:var(--panel)}
+#navbar button.arrow{width:40px;height:38px;border:0;border-radius:8px;background:var(--panel2);
+  color:var(--ink);font-size:17px;flex:0 0 auto}
+#navSel{flex:1;min-width:0;background:#0e0e11;border:1px solid var(--line);border-radius:8px;
+  color:var(--ink);font:inherit;font-size:14px;padding:9px 8px;text-align:center}
+
+/* ── 入力パネル ── */
+#panel{flex:0 0 auto;max-height:42dvh;overflow-y:auto;padding:10px;background:var(--panel);
+  -webkit-overflow-scrolling:touch}
+label.lb{display:block;font-size:11px;color:var(--dim2);margin-bottom:3px}
+input[type=text],input[type=number],textarea,select{
+  width:100%;background:#0e0e11;border:1px solid var(--line);border-radius:8px;color:var(--ink);
+  font:inherit;font-size:16px;padding:9px 10px;outline:none}
+textarea{resize:vertical;line-height:1.55;font-size:15px}
+input:focus,textarea:focus,select:focus{border-color:var(--accent)}
+input[type=color]{width:100%;height:38px;padding:2px;background:#0e0e11;border:1px solid var(--line);border-radius:8px}
+input[type=range]{width:100%;accent-color:var(--accent);height:30px}
+input[type=checkbox]{width:auto;accent-color:var(--accent);transform:scale(1.15)}
+.g2{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.g3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px}
+.g4{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+@media(min-width:620px){.g4{grid-template-columns:repeat(4,1fr)}}
+.row{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:6px;border:0;border-radius:8px;
+  background:var(--panel2);color:var(--ink);font:inherit;font-size:14px;padding:10px 12px;cursor:pointer}
+.btn:active{opacity:.7}
+.btn.primary{background:var(--accent);color:#09090b;font-weight:700}
+.btn.ghost{background:transparent;border:1px solid var(--line);color:var(--dim)}
+.btn.danger{background:transparent;border:1px solid var(--danger);color:var(--danger)}
+.btn.sm{padding:7px 10px;font-size:13px}
+.nudge{display:grid;grid-template-columns:repeat(4,1fr);gap:5px}
+.nudge button{background:var(--panel2);border:0;border-radius:8px;color:var(--ink);font:inherit;
+  font-size:16px;padding:11px 0}
+.note{font-size:11px;color:var(--dim2);line-height:1.6;margin:7px 0 0}
+.hidden{display:none !important}
+details.adv{margin-top:12px;border-top:1px solid var(--panel2);padding-top:4px}
+details.adv>summary{list-style:none;cursor:pointer;font-size:13px;color:var(--dim);
+  padding:9px 2px;display:flex;align-items:center;gap:6px}
+details.adv>summary::-webkit-details-marker{display:none}
+details.adv>summary::before{content:"▸";color:var(--dim2);transition:transform .15s}
+details.adv[open]>summary::before{transform:rotate(90deg)}
+details.adv[open]>summary{color:var(--accent)}
+.advbody{padding:2px 0 6px}
+.chips{display:flex;flex-wrap:wrap;gap:6px}
+.chip{border:1px solid var(--line);background:transparent;color:var(--dim);border-radius:999px;
+  font:inherit;font-size:13px;padding:7px 13px}
+.chip.on{border-color:var(--accent);color:var(--accent)}
+h3.sec{font-size:12px;color:var(--dim);margin:14px 0 7px;padding-top:10px;border-top:1px solid var(--panel2)}
+h3.sec:first-child{margin-top:0;padding-top:0;border-top:0}
+
+/* ── シート ── */
+.sheet{position:fixed;inset:0;background:rgba(0,0,0,.72);z-index:60;display:none;
+  align-items:flex-end;justify-content:center}
+.sheet.show{display:flex}
+.sheet .inner{background:var(--panel);width:100%;max-width:560px;max-height:86dvh;overflow-y:auto;
+  border-radius:16px 16px 0 0;padding:14px 14px calc(14px + env(safe-area-inset-bottom))}
+.sheet h2{font-size:15px;margin:0 0 12px}
+.sheet .close{position:sticky;bottom:0;margin-top:12px}
+.tplrow{padding:9px;border:1px solid var(--panel2);border-radius:10px;margin-bottom:8px}
+.tplrow.on{border-color:var(--accent)}
+.tplname{width:100%;background:transparent;border:0;padding:3px 2px;font-size:15px;color:var(--ink);outline:none}
+.tplrow.on .tplname{color:var(--accent)}
+.tplbtns{display:flex;gap:6px;margin-top:7px}
+.tplchk{display:flex;flex-wrap:wrap;gap:6px 16px;margin-top:9px;padding-top:8px;
+  border-top:1px dashed var(--panel2)}
+.tplchk label{display:flex;align-items:center;gap:6px;font-size:12px;color:var(--dim)}
+.tplbadge{display:inline-block;font-size:10px;color:var(--accent);border:1px solid var(--accent);
+  border-radius:4px;padding:1px 5px;margin-left:6px;vertical-align:middle}
+.tplbtns .btn{flex:1 1 0;min-width:0;min-height:42px;padding:8px 4px}
+.btn.sm{padding:8px 10px;font-size:13px;min-height:38px}
+.btn.armed{background:var(--danger)!important;border-color:var(--danger)!important;
+  color:#0b0b0d!important;font-weight:700}
+
+/* ── 保存オーバーレイ ── */
+#save{position:fixed;inset:0;background:rgba(0,0,0,.9);z-index:70;display:none;
+  flex-direction:column;align-items:center;justify-content:center;gap:14px;padding:18px}
+#save.show{display:flex}
+#save img{max-width:min(82vw,330px);max-height:58dvh;border-radius:5px;box-shadow:0 10px 40px rgba(0,0,0,.7)}
+#toast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%);background:#27272a;
+  color:#fafafa;font-size:13px;padding:10px 16px;border-radius:999px;z-index:90;opacity:0;
+  transition:opacity .25s;pointer-events:none}
+#toast.show{opacity:1}
+</style>
+</head>
+<body>
+<div id="app">
+  <header>
+    <div class="tabs">
+      <button id="tabCard" class="on">カード入力</button>
+      <button id="tabTpl">テンプレート</button>
+    </div>
+    <div class="sp"></div>
+    <button class="btn sm" id="btnMenu">メニュー</button>
+    <button class="btn sm primary" id="btnSave">保存</button>
+  </header>
+
+  <div id="stagewrap"><div id="stage"><canvas id="cv"></canvas></div></div>
+
+  <div id="strip"></div>
+
+  <div id="navbar">
+    <button class="arrow" id="navPrev">‹</button>
+    <select id="navSel"></select>
+    <button class="arrow" id="navNext">›</button>
+  </div>
+
+  <div id="panel"></div>
+</div>
+
+<div class="sheet" id="sheet"><div class="inner">
+  <div id="sheetBody"></div>
+  <button class="btn ghost close" id="sheetClose" style="width:100%">閉じる</button>
+</div></div>
+
+<div id="save">
+  <p style="margin:0;font-size:13px;color:#a1a1aa">画像を長押しして保存、またはボタンから</p>
+  <img id="saveImg" alt="カード画像">
+  <div class="row">
+    <a class="btn primary" id="saveDl" download="card.png">ダウンロード</a>
+    <button class="btn ghost" id="saveClose">閉じる</button>
+  </div>
+</div>
+
+<div id="toast"></div>
+
+<script>
+"use strict";
+
+/* ══════════════════════════════════════════════
+   カード寸法（グレブレ枠サンプルPDFの実測値）
+   69×94mm @400dpi = 1087×1481px（3mm塗り足し込み）
+   仕上がり 63×88mm = 992×1386px（四辺から47px）
+   ══════════════════════════════════════════════ */
+const CARD_W=1087, CARD_H=1481, BLEED=47;
+const TRIM_L=49, TRIM_R=1036, TRIM_T=49, TRIM_B=1430;
+const FL=77, FR=1008.5, FT=76.5, FB=1402.5;
+const HEX_X=168.5, HEX_R=257, HEX_UY=131, HEX_LY=232, HEX_BY=285;
+const NAME_B=186, TRIBE_B=237, TYPE_R=497, TYPE_B=288;
+const COL_X=168.5, ART_B=988, FOOT_T=1366.5;
+const LW=5;
+
+const FAMILIES={
+  gothic:'"Noto Sans JP","Hiragino Kaku Gothic ProN","Yu Gothic",sans-serif',
+  mincho:'"Noto Serif JP","Hiragino Mincho ProN","Yu Mincho",serif'
+};
+const FAMILY_LABEL={gothic:"ゴシック",mincho:"明朝"};
+
+const CIVS={
+  "白":{border:"#ffffff",bar:"#ffffff"},
+  "光":{border:"#F3DE72",bar:"#FBF4CE"},
+  "水":{border:"#63B9E0",bar:"#D2EBF7"},
+  "闇":{border:"#4C4757",bar:"#CDC8D6"},
+  "火":{border:"#E36A54",bar:"#F8D5CB"},
+  "自然":{border:"#75C186",bar:"#D6EEDA"},
+  "無色":{border:"#BFC7D0",bar:"#E9EDF1"}
+};
+
+/* 禁則処理 */
+const NO_START=new Set([..."、。，．・：；？！ー〜）」』】〕］｝〉》ゃゅょっぁぃぅぇぉャュョッァィゥェォ％℃"]);
+const NO_END=new Set([..."（「『【〔［｛〈《"]);
+const ROT_CHARS=new Set([..."ー－—―〜～（）()「」『』【】〔〕［］｛｝〈〉《》"]);
+const SHIFT_CHARS=new Set([..."、。，．"]);
+
+const uid=()=>Date.now().toString(36)+Math.random().toString(36).slice(2,7);
+
+/* ══════════════════════════════════════════════
+   既定テンプレート
+   ══════════════════════════════════════════════ */
+const mkField=(id,label,box,size,ex={})=>Object.assign({
+  id,label,box,size,min:12,autofit:true,
+  orient:"h",rotate:-90,
+  align:"left",valign:"top",lineHeight:1.34,tracking:0,
+  family:"gothic",weight:"700",color:"#000000",
+  stroke:0,strokeColor:"#ffffff",
+  multiline:false,input:true,fixed:null,growIfEmpty:null,visible:true
+},ex);
+
+function defaultFields(){
+  return [
+    mkField("cost","コスト",{x:85,y:92,w:164,h:152},116,{align:"center",valign:"middle"}),
+    mkField("name","カード名",{x:266,y:84,w:734,h:94},74,{align:"center",valign:"middle"}),
+    mkField("tribe","種族",{x:264,y:192,w:738,h:40},38,{align:"center",valign:"middle"}),
+    mkField("type","カードの種類",{x:178,y:243,w:310,h:40},32,{align:"center",valign:"middle"}),
+    mkField("effect","効果テキスト",{x:190,y:1000,w:800,h:266},56,
+      {weight:"400",multiline:true,growIfEmpty:"flavor",min:14}),
+    mkField("flavor","フレーバーテキスト",{x:190,y:1274,w:800,h:84},36,
+      {weight:"400",family:"mincho",multiline:true,min:12}),
+    mkField("power","パワー",{x:84,y:1000,w:72,h:284},74,
+      {orient:"rot",rotate:-90,align:"center",valign:"middle"}),
+    mkField("plabel","P（固定ラベル）",{x:84,y:1294,w:72,h:68},70,
+      {orient:"rot",rotate:-90,align:"center",valign:"middle",fixed:"P",input:false}),
+    mkField("set","エキスパンション",{x:88,y:1370,w:250,h:28},26,{valign:"middle",weight:"400"})
+  ];
+}
+function defaultTemplate(name){
+  return {
+    id:uid(), name:name||"標準テンプレート",
+    fields:defaultFields(),
+    preset:null, useText:false, useArt:false,
+    opts:{
+      colors:{border:"#ffffff",bar:"#ffffff",line:"#000000"},
+      civ:"白", trimLine:true,
+      keepHex:true, panel:true, panelAlpha:0.84, panelColor:"#ffffff", autoStroke:true
+    }
+  };
+}
+function defaultCard(tplId){
+  return {id:uid(), tplId,
+    values:{cost:"",name:"",tribe:"",type:"",effect:"",flavor:"",power:"",set:""},
+    ov:{}, art:{src:null,zoom:1,x:0,y:0}, full:false};
+}
+
+/* ══════════════════════════════════════════════
+   状態
+   ══════════════════════════════════════════════ */
+const S={
+  templates:[], cards:[],
+  tplIdx:0, cardIdx:0,
+  mode:"card", advOpen:false,   // card | tpl
+  selField:"name",    // card入力時の選択項目（"__art__" でイラスト）
+  selTplField:"name", // テンプレート編集時の選択項目
+  scale:1, cut:"bleed",
+  artCache:new Map()  // src -> Image
+};
+const tpl=()=>S.templates[S.tplIdx];
+const card=()=>S.cards[S.cardIdx];
+function cardsOfTpl(){ return S.cards; }
+
+/* テンプレートに保存されたカード内容を引き継いで新規カードを作る */
+function newCardFrom(t){
+  const cd=defaultCard(t.id);
+  const p=t && t.preset;
+  if(p){
+    if(t.useText){
+      cd.values=Object.assign({},p.values||{});
+      cd.ov=JSON.parse(JSON.stringify(p.ov||{}));
+    }
+    if(t.useArt){
+      cd.art=Object.assign({src:null,zoom:1,x:0,y:0},p.art||{});
+      cd.full=!!p.full;
+    }
+  }
+  return cd;
+}
+
+/* ══════════════════════════════════════════════
+   保存（IndexedDB）
+   ══════════════════════════════════════════════ */
+function openDB(){
+  return new Promise((res,rej)=>{
+    const r=indexedDB.open("proxymaker",1);
+    r.onupgradeneeded=()=>{ r.result.createObjectStore("kv"); };
+    r.onsuccess=()=>res(r.result); r.onerror=()=>rej(r.error);
+  });
+}
+async function kvSet(k,v){
+  const db=await openDB();
+  return new Promise((res,rej)=>{
+    const t=db.transaction("kv","readwrite");
+    t.objectStore("kv").put(v,k);
+    t.oncomplete=()=>res(); t.onerror=()=>rej(t.error);
+  });
+}
+async function kvGet(k){
+  const db=await openDB();
+  return new Promise((res,rej)=>{
+    const t=db.transaction("kv","readonly");
+    const q=t.objectStore("kv").get(k);
+    q.onsuccess=()=>res(q.result); q.onerror=()=>rej(q.error);
+  });
+}
+let saveTimer=null;
+function persist(){
+  clearTimeout(saveTimer);
+  saveTimer=setTimeout(async()=>{
+    try{ await kvSet("state",{templates:S.templates,cards:S.cards,tplIdx:S.tplIdx,cardIdx:S.cardIdx}); }
+    catch(e){ console.warn("保存失敗",e); }
+  },500);
+}
+
+/* ══════════════════════════════════════════════
+   文字組み
+   ══════════════════════════════════════════════ */
+const measure=document.createElement("canvas").getContext("2d");
+function setFont(c,f,size){ c.font=`${f.weight} ${size}px ${FAMILIES[f.family]}`; }
+
+function wrapH(text,width,f,size){
+  setFont(measure,f,size);
+  const out=[];
+  for(const para of String(text).split("\n")){
+    if(para===""){ out.push(""); continue; }
+    const ch=[...para];
+    let line="";
+    for(let i=0;i<ch.length;i++){
+      const c=ch[i];
+      if(measure.measureText(line+c).width>width && line!==""){
+        /* 行頭禁則：直前の1文字ごと次行へ送る（追い出し） */
+        if(NO_START.has(c)){
+          if(line.length>1){ out.push(line.slice(0,-1)); line=""; i-=2; continue; }
+          line+=c; continue;   // 送れないときだけぶら下げ
+        }
+        /* 行末禁則：開き括弧が行末に残らないよう次行へ送る */
+        let br=line;
+        while(br.length>1 && NO_END.has(br[br.length-1])){ i--; br=br.slice(0,-1); }
+        out.push(br); line=c;
+      } else line+=c;
+    }
+    if(line!=="") out.push(line);
+  }
+  return out;
+}
+function wrapV(text,height,f,size){
+  const pitch=size+f.tracking;
+  const per=Math.max(1,Math.floor(height/pitch));
+  const cols=[];
+  for(const para of String(text).split("\n")){
+    if(para===""){ cols.push(""); continue; }
+    for(let i=0;i<para.length;i+=per) cols.push(para.slice(i,i+per));
+  }
+  return cols;
+}
+
+/* 指定サイズで箱に収まるか */
+function fitsAt(text,box,f,size){
+  if(f.orient==="rot"){
+    setFont(measure,f,size);
+    const tw=measure.measureText(String(text).replace(/\n/g," ")).width;
+    return tw<=box.h && size*1.18<=box.w;
+  }
+  if(f.orient==="v"){
+    const cols=wrapV(text,box.h,f,size);
+    return cols.length*size*f.lineHeight<=box.w;
+  }
+  const lines=wrapH(text,box.w,f,size);
+  setFont(measure,f,size);
+  const tol=box.w+size*0.08;   // ぶら下がり1文字ぶんの許容
+  for(const l of lines) if(measure.measureText(l).width>tol) return false;
+  return lines.length*size*f.lineHeight<=box.h;
+}
+
+const fitCache=new Map();
+function fitSize(text,box,f){
+  if(!f.autofit) return f.size;
+  const key=[text,box.w|0,box.h|0,f.size,f.min,f.family,f.weight,f.lineHeight,f.tracking,f.orient].join("|");
+  if(fitCache.has(key)) return fitCache.get(key);
+  const min=Math.max(6,f.min||12);
+  let lo=min, hi=f.size, best=min;
+  while(lo<=hi){
+    const mid=(lo+hi)>>1;
+    if(fitsAt(text,box,f,mid)){ best=mid; lo=mid+1; } else hi=mid-1;
+  }
+  if(fitCache.size>800) fitCache.clear();
+  fitCache.set(key,best);
+  return best;
+}
+
+/* そのカードだけの微調整（詳細設定） */
+function ovOf(cd,id){ return (cd && cd.ov && cd.ov[id]) || null; }
+function ovEdit(cd,id){
+  if(!cd.ov) cd.ov={};
+  if(!cd.ov[id]) cd.ov[id]={dx:0,dy:0,dw:0,dh:0,size:0,color:""};
+  return cd.ov[id];
+}
+function ovUsed(o){ return !!o && !!(o.dx||o.dy||o.dw||o.dh||o.size||o.color); }
+function withOv(f,cd){
+  const o=ovOf(cd,f.id);
+  if(!ovUsed(o)) return f;
+  const g=Object.assign({},f);
+  if(o.size) g.size=o.size;
+  if(o.color) g.color=o.color;
+  return g;
+}
+
+/* 空の項目を吸収して伸びた箱＋カードごとの微調整 */
+function boxFor(f,cd,t){
+  const values=(cd&&cd.values)||{};
+  const b={x:f.box.x,y:f.box.y,w:f.box.w,h:f.box.h};
+  if(f.growIfEmpty){
+    t=t||tpl();
+    const other=t.fields.find(x=>x.id===f.growIfEmpty);
+    if(other){
+      const v=(values[other.id]||other.fixed||"").trim();
+      if(v==="") b.h=Math.max(b.h,(other.box.y+other.box.h)-b.y);
+    }
+  }
+  const o=ovOf(cd,f.id);
+  if(o){
+    b.x+=o.dx||0; b.y+=o.dy||0;
+    b.w=Math.max(24,b.w+(o.dw||0));
+    b.h=Math.max(18,b.h+(o.dh||0));
+  }
+  return b;
+}
+
+/* ══════════════════════════════════════════════
+   描画
+   ══════════════════════════════════════════════ */
+function framePath(c){ c.beginPath(); c.rect(FL,FT,FR-FL,FB-FT); }
+function hexPath(c){
+  c.beginPath();
+  c.moveTo(HEX_X,FT); c.lineTo(HEX_R,HEX_UY); c.lineTo(HEX_R,HEX_LY);
+  c.lineTo(HEX_X,HEX_BY); c.lineTo(FL,HEX_LY); c.lineTo(FL,HEX_UY); c.closePath();
+}
+function roundRect(c,x,y,w,h,r){
+  c.beginPath();
+  c.moveTo(x+r,y); c.arcTo(x+w,y,x+w,y+h,r); c.arcTo(x+w,y+h,x,y+h,r);
+  c.arcTo(x,y+h,x,y,r); c.arcTo(x,y,x+w,y,r); c.closePath();
+}
+
+function drawArt(c,img,win,art){
+  c.save();
+  c.beginPath(); c.rect(win.x,win.y,win.w,win.h); c.clip();
+  const base=Math.max(win.w/img.width,win.h/img.height)*art.zoom;
+  const w=img.width*base, h=img.height*base;
+  c.drawImage(img, win.x+(win.w-w)/2+art.x, win.y+(win.h-h)/2+art.y, w, h);
+  c.restore();
+}
+
+function drawFrame(c,t,cd,img){
+  const o=t.opts, full=cd.full;
+
+  if(full){
+    c.fillStyle=o.colors.bar; c.fillRect(0,0,CARD_W,CARD_H);
+    if(img) drawArt(c,img,{x:0,y:0,w:CARD_W,h:CARD_H},cd.art);
+
+    /* 効果テキストの下地 */
+    if(o.panel){
+      const ef=t.fields.find(f=>f.id==="effect");
+      const fl=t.fields.find(f=>f.id==="flavor");
+      if(ef){
+        const b=boxFor(ef,cd,t);
+        const bot=(fl && (cd.values.flavor||"").trim()!=="")
+          ? Math.max(b.y+b.h, fl.box.y+fl.box.h) : b.y+b.h;
+        c.save(); c.globalAlpha=o.panelAlpha; c.fillStyle=o.panelColor;
+        roundRect(c,b.x-22,b.y-18,b.w+44,(bot-b.y)+36,16); c.fill(); c.restore();
+      }
+    }
+    if(o.keepHex){
+      hexPath(c); c.fillStyle=o.colors.bar; c.fill();
+      c.strokeStyle=o.colors.line; c.lineWidth=LW; c.lineJoin="miter"; c.stroke();
+    }
+    c.strokeStyle=o.colors.line; c.lineWidth=LW; c.lineJoin="miter";
+    framePath(c); c.stroke();
+    return;
+  }
+
+  c.fillStyle=o.colors.border; c.fillRect(0,0,CARD_W,CARD_H);
+  framePath(c); c.fillStyle=o.colors.bar; c.fill();
+
+  if(img){
+    drawArt(c,img,{x:COL_X,y:TRIBE_B,w:FR-COL_X,h:ART_B-TRIBE_B},cd.art);
+    c.fillStyle=o.colors.bar; c.fillRect(COL_X,TRIBE_B,TYPE_R-COL_X,TYPE_B-TRIBE_B);
+  }
+
+  c.strokeStyle=o.colors.line; c.lineWidth=LW; c.lineJoin="miter";
+  const seg=(a,b,d,e)=>{c.beginPath();c.moveTo(a,b);c.lineTo(d,e);c.stroke();};
+  framePath(c); c.stroke();
+  hexPath(c); c.stroke();
+  seg(HEX_R,NAME_B,FR,NAME_B);
+  seg(245,TRIBE_B,FR,TRIBE_B);
+  seg(TYPE_R,TRIBE_B,TYPE_R,TYPE_B);
+  seg(COL_X,TYPE_B,TYPE_R,TYPE_B);
+  seg(COL_X,HEX_BY,COL_X,FOOT_T);
+  seg(FL,ART_B,FR,ART_B);
+  seg(FL,FOOT_T,FR,FOOT_T);
+}
+
+function paintField(c,f,text,box,full,autoStroke){
+  if(!f.visible||!text) return;
+  const size=fitSize(text,box,f);
+  setFont(c,f,size);
+  const strokeW = f.stroke>0 ? f.stroke : (full&&autoStroke ? Math.max(2,size*0.11) : 0);
+  const strokeC = f.stroke>0 ? f.strokeColor : "#ffffff";
+  const ink=draw=>{
+    if(strokeW>0){
+      c.lineJoin="round"; c.miterLimit=2; c.lineWidth=strokeW*2; c.strokeStyle=strokeC;
+      draw(true);
+    }
+    c.fillStyle=f.color; draw(false);
+  };
+
+  if(f.orient==="rot"){
+    c.save();
+    c.translate(box.x+box.w/2, box.y+box.h/2);
+    c.rotate(f.rotate*Math.PI/180);
+    c.textAlign="center"; c.textBaseline="middle";
+    const t=String(text).replace(/\n/g," ");
+    ink(st=> st? c.strokeText(t,0,0) : c.fillText(t,0,0));
+    c.restore();
+    return;
+  }
+
+  if(f.orient==="v"){
+    const cols=wrapV(text,box.h,f,size);
+    const colPitch=size*f.lineHeight, pitch=size+f.tracking;
+    const totalW=cols.length*colPitch;
+    let startX = box.x + box.w - colPitch/2;
+    if(f.align==="center") startX = box.x + (box.w+totalW)/2 - colPitch/2;
+    else if(f.align==="left") startX = box.x + totalW - colPitch/2;
+    c.textAlign="center"; c.textBaseline="middle";
+    cols.forEach((col,ci)=>{
+      const cx=startX-ci*colPitch;
+      const colH=col.length*pitch;
+      let sy=box.y;
+      if(f.valign==="middle") sy=box.y+(box.h-colH)/2;
+      else if(f.valign==="bottom") sy=box.y+box.h-colH;
+      [...col].forEach((ch,i)=>{
+        const cy=sy+i*pitch+pitch/2;
+        c.save();
+        if(ROT_CHARS.has(ch)){ c.translate(cx,cy); c.rotate(Math.PI/2);
+          ink(st=> st? c.strokeText(ch,0,0) : c.fillText(ch,0,0)); }
+        else if(SHIFT_CHARS.has(ch)){ const dx=cx+size*0.3, dy=cy-size*0.3;
+          ink(st=> st? c.strokeText(ch,dx,dy) : c.fillText(ch,dx,dy)); }
+        else ink(st=> st? c.strokeText(ch,cx,cy) : c.fillText(ch,cx,cy));
+        c.restore();
+      });
+    });
+    return;
+  }
+
+  const lines=wrapH(text,box.w,f,size);
+  const lh=size*f.lineHeight;
+  const totalH=lines.length*lh;
+  let y0=box.y;
+  if(f.valign==="middle") y0=box.y+(box.h-totalH)/2;
+  else if(f.valign==="bottom") y0=box.y+box.h-totalH;
+  c.textBaseline="top"; c.textAlign=f.align;
+  const ax = f.align==="center" ? box.x+box.w/2 : f.align==="right" ? box.x+box.w : box.x;
+  lines.forEach((line,i)=>{
+    const y=y0+i*lh+(lh-size)/2;
+    ink(st=> st? c.strokeText(line,ax,y) : c.fillText(line,ax,y));
+  });
+}
+
+function drawCard(c,scale,t,cd,crop,showTrim){
+  c.save();
+  c.scale(scale,scale);
+  if(crop) c.translate(-BLEED,-BLEED);
+  c.clearRect(0,0,CARD_W,CARD_H);
+  const img=cd.art.src ? S.artCache.get(cd.art.src) : null;
+  drawFrame(c,t,cd,img);
+  for(const f0 of t.fields){
+    const f=withOv(f0,cd);
+    const text = f.fixed!=null ? f.fixed : (cd.values[f.id]||"");
+    paintField(c,f,text,boxFor(f,cd,t),cd.full,t.opts.autoStroke);
+  }
+  if(t.opts.trimLine && showTrim && !crop){
+    c.save();
+    c.setLineDash([14,10]); c.lineWidth=2; c.strokeStyle=t.opts.colors.line; c.globalAlpha=.4;
+    c.strokeRect(TRIM_L,TRIM_T,TRIM_R-TRIM_L,TRIM_B-TRIM_T);
+    c.restore();
+  }
+  c.restore();
+}
+
+/* 画像読み込み */
+function loadArt(src){
+  if(!src) return Promise.resolve(null);
+  if(S.artCache.has(src)) return Promise.resolve(S.artCache.get(src));
+  return new Promise(res=>{
+    let done=false;
+    const fin=v=>{ if(!done){ done=true; res(v); } };
+    const im=new Image();
+    im.onload=()=>{ S.artCache.set(src,im); fin(im); };
+    im.onerror=()=>fin(null);
+    setTimeout(()=>fin(null),8000);   // 読めない画像でUIを止めない
+    im.src=src;
+  });
+}
+
+/* ══════════════════════════════════════════════
+   プレビュー
+   ══════════════════════════════════════════════ */
+const stage=document.getElementById("stage");
+const cv=document.getElementById("cv");
+const PREV=0.5;
+cv.width=CARD_W*PREV; cv.height=CARD_H*PREV;
+const ctx=cv.getContext("2d");
+let hitEls={};
+
+function fitStage(){
+  const wrap=document.getElementById("stagewrap");
+  const aw=wrap.clientWidth-4, ah=wrap.clientHeight-4;
+  if(aw<=0||ah<=0) return;
+  const r=CARD_W/CARD_H;
+  let w=ah*r, h=ah;
+  if(w>aw){ w=aw; h=aw/r; }
+  stage.style.width=Math.floor(w)+"px";
+  stage.style.height=Math.floor(h)+"px";
+}
+window.addEventListener("resize",fitStage);
+
+function render(){
+  if(!tpl()||!card()) return;
+  fitStage();
+  drawCard(ctx,PREV,tpl(),card(),false,true);
+  syncHits();
+}
+
+function syncHits(){
+  const t=tpl(), cd=card();
+  const keep={};
+  for(const f of t.fields){
+    let el=hitEls[f.id];
+    if(!el){
+      el=document.createElement("div");
+      el.className="hit";
+      el.dataset.id=f.id;
+      el.addEventListener("pointerdown",e=>onHitDown(e,f.id));
+      const g=document.createElement("div"); g.className="grip br";
+      g.addEventListener("pointerdown",e=>startDrag(e,"resize",f.id));
+      el._grip=g;
+      stage.appendChild(el);
+    }
+    const b=boxFor(f,cd,t);
+    el.style.left=(b.x/CARD_W*100)+"%";
+    el.style.top=(b.y/CARD_H*100)+"%";
+    el.style.width=(b.w/CARD_W*100)+"%";
+    el.style.height=(b.h/CARD_H*100)+"%";
+    const editable = S.mode==="tpl";
+    const sel = editable ? (S.selTplField===f.id) : (S.selField===f.id);
+    el.className="hit"+(sel?" on":(editable?" show":""));
+    el.style.display = (f.visible||editable) ? "block" : "none";
+    el.style.pointerEvents = (!editable && !f.input) ? "none" : "auto";
+    el.style.cursor = editable ? "move" : "pointer";
+    if(editable && sel){ if(!el._grip.parentNode) el.appendChild(el._grip); }
+    else if(el._grip.parentNode) el._grip.remove();
+    keep[f.id]=el;
+  }
+  for(const id in hitEls) if(!keep[id]) hitEls[id].remove();
+  hitEls=keep;
+}
+
+function onHitDown(e,id){
+  if(S.mode==="tpl"){ selectTplField(id); startDrag(e,"move",id); }
+  else { const f=tpl().fields.find(x=>x.id===id); if(f&&f.input){ selectField(id); } }
+}
+
+/* ドラッグ（テンプレート編集時のみ） */
+let drag=null;
+function startDrag(e,kind,id){
+  if(S.mode!=="tpl") return;
+  e.preventDefault(); e.stopPropagation();
+  const r=stage.getBoundingClientRect();
+  const f=tpl().fields.find(x=>x.id===id);
+  drag={kind,id,sx:e.clientX,sy:e.clientY,k:CARD_W/r.width,o:{...f.box}};
+}
+window.addEventListener("pointermove",e=>{
+  if(!drag) return;
+  const dx=(e.clientX-drag.sx)*drag.k, dy=(e.clientY-drag.sy)*drag.k;
+  const f=tpl().fields.find(x=>x.id===drag.id);
+  if(!f) return;
+  if(drag.kind==="move"){ f.box.x=Math.round(drag.o.x+dx); f.box.y=Math.round(drag.o.y+dy); }
+  else { f.box.w=Math.max(24,Math.round(drag.o.w+dx)); f.box.h=Math.max(20,Math.round(drag.o.h+dy)); }
+  render(); refreshBoxInputs(); persist();
+});
+window.addEventListener("pointerup",()=>{ drag=null; });
+window.addEventListener("pointercancel",()=>{ drag=null; });
+
+/* ══════════════════════════════════════════════
+   カード一覧
+   ══════════════════════════════════════════════ */
+const strip=document.getElementById("strip");
+function buildStrip(){
+  strip.textContent="";
+  if(S.mode==="tpl"){ strip.classList.add("hidden"); return; }
+  strip.classList.remove("hidden");
+  S.cards.forEach((cd,i)=>{
+    const d=document.createElement("div");
+    d.className="thumb"+(i===S.cardIdx?" on":"");
+    const tc=document.createElement("canvas");
+    tc.width=CARD_W*0.085; tc.height=CARD_H*0.085;
+    const t=S.templates.find(x=>x.id===cd.tplId)||tpl();
+    try{ drawCard(tc.getContext("2d"),0.085,t,cd,false); }catch(e){}
+    const n=document.createElement("div"); n.className="n"; n.textContent=i+1;
+    d.append(tc,n);
+    d.onclick=()=>{
+      S.cardIdx=i; render(); buildStrip(); buildPanel(); persist();
+      if(cd.art.src && !S.artCache.has(cd.art.src)) loadArt(cd.art.src).then(()=>{ render(); buildStrip(); });
+    };
+    strip.appendChild(d);
+  });
+  const add=document.createElement("button");
+  add.className="addcard"; add.textContent="＋";
+  add.onclick=()=>{
+    const cd=newCardFrom(tpl());
+    S.cards.push(cd); S.cardIdx=S.cards.length-1;
+    render(); buildStrip(); buildNav(); buildPanel(); persist();
+    if(cd.art.src) loadArt(cd.art.src).then(()=>{ render(); buildStrip(); });
+  };
+  strip.appendChild(add);
+}
+
+/* ══════════════════════════════════════════════
+   項目送りバー
+   ══════════════════════════════════════════════ */
+const navSel=document.getElementById("navSel");
+function navItems(){
+  if(S.mode==="tpl") return tpl().fields.map(f=>({id:f.id,label:f.label}));
+  return [{id:"__art__",label:"イラスト"}]
+    .concat(tpl().fields.filter(f=>f.input).map(f=>({id:f.id,label:f.label})));
+}
+function buildNav(){
+  const items=navItems();
+  navSel.textContent="";
+  items.forEach(it=>{
+    const o=document.createElement("option"); o.value=it.id; o.textContent=it.label;
+    navSel.appendChild(o);
+  });
+  navSel.value = S.mode==="tpl" ? S.selTplField : S.selField;
+  if(!navSel.value && items.length){ navSel.value=items[0].id; applyNav(); }
+}
+function applyNav(){
+  if(S.mode==="tpl") S.selTplField=navSel.value; else S.selField=navSel.value;
+  syncHits(); buildPanel();
+}
+navSel.onchange=applyNav;
+function step(d){
+  const items=navItems();
+  const cur=S.mode==="tpl"?S.selTplField:S.selField;
+  let i=items.findIndex(x=>x.id===cur);
+  i=(i+d+items.length)%items.length;
+  navSel.value=items[i].id; applyNav();
+}
+document.getElementById("navPrev").onclick=()=>step(-1);
+document.getElementById("navNext").onclick=()=>step(1);
+function selectField(id){ S.selField=id; navSel.value=id; syncHits(); buildPanel(); }
+function selectTplField(id){ S.selTplField=id; navSel.value=id; syncHits(); buildPanel(); }
+
+/* ══════════════════════════════════════════════
+   入力パネル
+   ══════════════════════════════════════════════ */
+const panel=document.getElementById("panel");
+const el=(tag,props={},kids=[])=>{
+  const n=document.createElement(tag);
+  Object.assign(n,props);
+  if(props.style) n.setAttribute("style",props.style);
+  kids.forEach(k=>n.appendChild(k));
+  return n;
+};
+const labeled=(text,node)=>el("div",{},[el("label",{className:"lb",textContent:text}),node]);
+
+function numInput(get,set,step){
+  const i=el("input",{type:"number",value:get()});
+  if(step) i.step=step;
+  i.oninput=()=>{ const v=Number(i.value); if(!isNaN(v)){ set(v); render(); persist(); } };
+  return i;
+}
+function selInput(opts,get,set){
+  const s=el("select");
+  opts.forEach(([v,t])=>s.appendChild(el("option",{value:v,textContent:t})));
+  s.value=get();
+  s.onchange=()=>{ set(s.value); render(); persist(); buildPanel(); };
+  return s;
+}
+function colorInput(get,set){
+  const i=el("input",{type:"color",value:get()});
+  i.oninput=()=>{ set(i.value); render(); persist(); };
+  return i;
+}
+function checkInput(text,get,set){
+  const i=el("input",{type:"checkbox"}); i.checked=get();
+  i.onchange=()=>{ set(i.checked); render(); persist(); buildPanel(); };
+  return el("label",{className:"row",style:"font-size:14px;gap:7px"},[i,document.createTextNode(" "+text)]);
+}
+
+function buildPanel(){
+  panel.textContent="";
+  if(S.mode==="card") buildCardPanel(); else buildTplPanel();
+}
+
+/* ── カード入力モード ── */
+function buildCardPanel(){
+  const cd=card();
+  if(S.selField==="__art__"){ buildArtPanel(cd); return; }
+  const f=tpl().fields.find(x=>x.id===S.selField);
+  if(!f){ panel.appendChild(el("p",{className:"note",textContent:"項目を選んでください。"})); return; }
+
+  const ta=el("textarea",{rows:f.multiline?5:2,value:cd.values[f.id]||""});
+  ta.placeholder=f.label;
+  const info=el("p",{className:"note"});
+  const updateInfo=()=>{
+    const g=withOv(f,cd), b=boxFor(f,cd,tpl());
+    const sz=fitSize(cd.values[f.id]||"",b,g);
+    info.textContent=`自動サイズ ${sz}px（上限 ${g.size}px）／枠 ${Math.round(b.w)}×${Math.round(b.h)}px`
+      + (ovUsed(ovOf(cd,f.id)) ? "　※このカードだけ調整中" : "");
+  };
+  ta.oninput=()=>{ cd.values[f.id]=ta.value; render(); updateInfo(); persist(); scheduleThumb(); };
+  panel.appendChild(labeled(f.label,ta));
+  updateInfo();
+  panel.appendChild(info);
+
+  const nav=el("div",{className:"g2",style:"margin-top:9px"});
+  nav.appendChild(el("button",{className:"btn",textContent:"‹ 前の項目",onclick:()=>step(-1)}));
+  nav.appendChild(el("button",{className:"btn",textContent:"次の項目 ›",onclick:()=>step(1)}));
+  panel.appendChild(nav);
+
+  panel.appendChild(buildDetails(cd,f,updateInfo));
+}
+
+/* ── 詳細設定（このカードだけの微調整） ── */
+function buildDetails(cd,f,updateInfo){
+  const d=el("details",{className:"adv"});
+  d.open=S.advOpen;
+  d.ontoggle=()=>{ S.advOpen=d.open; };
+  d.appendChild(el("summary",{textContent:"詳細設定（このカードだけ）"}));
+
+  const body=el("div",{className:"advbody"});
+  const touch=()=>{ render(); updateInfo&&updateInfo(); persist(); scheduleThumb(); };
+  const refresh=()=>{
+    const o=ovEdit(cd,f.id);
+    body.querySelectorAll("[data-ov]").forEach(i=>{
+      if(document.activeElement!==i) i.value=o[i.dataset.ov]||0;
+    });
+  };
+  const ovNum=key=>{
+    const i=el("input",{type:"number",value:(ovOf(cd,f.id)||{})[key]||0});
+    i.dataset.ov=key;
+    i.oninput=()=>{ ovEdit(cd,f.id)[key]=Number(i.value)||0; touch(); };
+    return i;
+  };
+
+  body.appendChild(el("p",{className:"note",style:"margin:0 0 8px",
+    textContent:"テンプレートはそのままで、このカードの見え方だけをずらします。"}));
+
+  const nd=el("div",{className:"nudge"});
+  [["←","dx",-6],["→","dx",6],["↑","dy",-6],["↓","dy",6]].forEach(([t,k,v])=>{
+    nd.appendChild(el("button",{textContent:t,onclick:()=>{
+      const o=ovEdit(cd,f.id); o[k]=(o[k]||0)+v; touch(); refresh(); }}));
+  });
+  body.appendChild(labeled("位置をずらす",nd));
+
+  const g=el("div",{className:"g4",style:"margin-top:8px"});
+  g.appendChild(labeled("横ずれ",ovNum("dx")));
+  g.appendChild(labeled("縦ずれ",ovNum("dy")));
+  g.appendChild(labeled("幅を増減",ovNum("dw")));
+  g.appendChild(labeled("高さを増減",ovNum("dh")));
+  body.appendChild(g);
+
+  const g2=el("div",{className:"g2",style:"margin-top:8px"});
+  const szi=el("input",{type:"number",value:(ovOf(cd,f.id)||{}).size||""});
+  szi.placeholder="テンプレートに従う（"+f.size+"）";
+  szi.oninput=()=>{ ovEdit(cd,f.id).size=Number(szi.value)||0; touch(); };
+  g2.appendChild(labeled("文字サイズ上限",szi));
+  const ci=el("input",{type:"color",value:((ovOf(cd,f.id)||{}).color)||f.color});
+  ci.oninput=()=>{ ovEdit(cd,f.id).color=ci.value; touch(); };
+  g2.appendChild(labeled("文字色",ci));
+  body.appendChild(g2);
+
+  const act=el("div",{className:"g2",style:"margin-top:10px"});
+  act.appendChild(el("button",{className:"btn ghost sm",textContent:"調整を消す",onclick:()=>{
+    if(cd.ov) delete cd.ov[f.id];
+    buildPanel(); render(); persist(); scheduleThumb();
+  }}));
+  const applyBtn=el("button",{className:"btn sm",textContent:"テンプレートに反映"});
+  armBtn(applyBtn,"全カードに反映する",()=>{
+    const o=ovOf(cd,f.id);
+    if(!ovUsed(o)){ toast("調整がありません"); return; }
+    f.box.x+=o.dx||0; f.box.y+=o.dy||0;
+    f.box.w=Math.max(24,f.box.w+(o.dw||0));
+    f.box.h=Math.max(18,f.box.h+(o.dh||0));
+    if(o.size) f.size=o.size;
+    if(o.color) f.color=o.color;
+    delete cd.ov[f.id];
+    fitCache.clear(); buildPanel(); render(); buildStrip(); persist();
+    toast("テンプレートに反映しました");
+  });
+  act.appendChild(applyBtn);
+  body.appendChild(act);
+
+  d.appendChild(body);
+  return d;
+}
+
+function buildArtPanel(cd){
+  const pick=el("label",{className:"btn",style:"cursor:pointer;justify-content:center"},
+    [document.createTextNode("画像を選ぶ")]);
+  const fi=el("input",{type:"file",accept:"image/*",className:"hidden"});
+  fi.onchange=async()=>{
+    const file=fi.files[0]; if(!file) return;
+    const src=await shrinkImage(file,2200);
+    cd.art.src=src; cd.art.x=0; cd.art.y=0; cd.art.zoom=1;
+    await loadArt(src); render(); buildPanel(); buildStrip(); persist();
+  };
+  pick.appendChild(fi);
+
+  const clr=el("button",{className:"btn ghost",textContent:"画像を外す",onclick:()=>{
+    cd.art.src=null; render(); buildPanel(); buildStrip(); persist();
+  }});
+  panel.appendChild(el("div",{className:"g2"},[pick,clr]));
+
+  panel.appendChild(checkInput("フルフレーム（全面イラスト・仕切り線なし）",
+    ()=>cd.full,v=>{ cd.full=v; buildStrip(); }));
+
+  const zv=el("span",{className:"lb",textContent:cd.art.zoom.toFixed(2)+"×",style:"margin:0"});
+  const z=el("input",{type:"range",min:"0.3",max:"3",step:"0.01",value:String(cd.art.zoom)});
+  z.oninput=()=>{ cd.art.zoom=Number(z.value); zv.textContent=cd.art.zoom.toFixed(2)+"×"; render(); persist(); };
+  panel.appendChild(el("div",{style:"margin-top:8px"},[
+    el("div",{className:"row",style:"justify-content:space-between"},
+      [el("label",{className:"lb",textContent:"拡大率",style:"margin:0"}),zv]),
+    z
+  ]));
+
+  const nd=el("div",{className:"nudge",style:"margin-top:4px"});
+  [["←",-14,0],["→",14,0],["↑",0,-14],["↓",0,14]].forEach(([t,dx,dy])=>{
+    nd.appendChild(el("button",{textContent:t,onclick:()=>{
+      cd.art.x+=dx; cd.art.y+=dy; render(); persist(); }}));
+  });
+  panel.appendChild(nd);
+  panel.appendChild(el("button",{className:"btn ghost sm",textContent:"位置をリセット",
+    style:"margin-top:7px;width:100%",onclick:()=>{ cd.art.x=0;cd.art.y=0;cd.art.zoom=1; render(); buildPanel(); persist(); }}));
+  panel.appendChild(el("p",{className:"note",
+    textContent:"プレビューの文字をタップすると、その項目の入力欄に切り替わります。"}));
+}
+
+/* ── テンプレート編集モード ── */
+function refreshBoxInputs(){
+  const f=tpl().fields.find(x=>x.id===S.selTplField); if(!f) return;
+  ["x","y","w","h"].forEach(k=>{
+    const i=panel.querySelector(`[data-box="${k}"]`);
+    if(i && document.activeElement!==i) i.value=f.box[k];
+  });
+}
+function buildTplPanel(){
+  const t=tpl();
+  const f=t.fields.find(x=>x.id===S.selTplField);
+
+  panel.appendChild(el("h3",{className:"sec",textContent:"項目"}));
+  const bar=el("div",{className:"g2"});
+  bar.appendChild(el("button",{className:"btn sm",textContent:"＋ 項目を追加",onclick:()=>{
+    const nf=mkField("fld"+uid(),"新しい項目",{x:250,y:500,w:420,h:90},40);
+    t.fields.push(nf); selectTplField(nf.id); buildNav(); render(); persist();
+  }}));
+  const fieldDel=el("button",{className:"btn sm danger",textContent:"この項目を削除"});
+  armBtn(fieldDel,"本当に削除",()=>{
+    if(!f) return;
+    t.fields=t.fields.filter(x=>x.id!==f.id);
+    S.selTplField=t.fields.length?t.fields[0].id:"";
+    buildNav(); render(); buildStrip(); buildPanel(); persist();
+    toast("項目を削除しました");
+  });
+  bar.appendChild(fieldDel);
+  panel.appendChild(bar);
+
+  if(!f){ panel.appendChild(el("p",{className:"note",textContent:"項目がありません。"})); return; }
+
+  panel.appendChild(el("h3",{className:"sec",textContent:"この項目"}));
+  const nm=el("input",{type:"text",value:f.label});
+  nm.oninput=()=>{ f.label=nm.value; buildNav(); persist(); };
+  panel.appendChild(labeled("項目名",nm));
+
+  if(f.fixed!=null){
+    const fx=el("input",{type:"text",value:f.fixed});
+    fx.oninput=()=>{ f.fixed=fx.value; render(); persist(); };
+    panel.appendChild(el("div",{style:"margin-top:8px"},[labeled("固定文字",fx)]));
+  }
+
+  panel.appendChild(el("h3",{className:"sec",textContent:"位置とサイズ"}));
+  const g=el("div",{className:"g4"});
+  [["X","x"],["Y","y"],["幅","w"],["高さ","h"]].forEach(([lb,k])=>{
+    const i=numInput(()=>f.box[k],v=>{ f.box[k]=v; },1);
+    i.dataset.box=k;
+    g.appendChild(labeled(lb,i));
+  });
+  panel.appendChild(g);
+  panel.appendChild(el("p",{className:"note",
+    textContent:"プレビュー上でドラッグして移動、右下の丸をドラッグでサイズ変更。"}));
+
+  panel.appendChild(el("h3",{className:"sec",textContent:"文字"}));
+  const g2=el("div",{className:"g4"});
+  g2.appendChild(labeled("最大サイズ",numInput(()=>f.size,v=>f.size=v)));
+  g2.appendChild(labeled("最小サイズ",numInput(()=>f.min,v=>f.min=v)));
+  g2.appendChild(labeled("行間",numInput(()=>f.lineHeight,v=>f.lineHeight=v,0.02)));
+  g2.appendChild(labeled("字間",numInput(()=>f.tracking,v=>f.tracking=v)));
+  panel.appendChild(g2);
+
+  const g3=el("div",{className:"g4",style:"margin-top:8px"});
+  g3.appendChild(labeled("書体",selInput(Object.entries(FAMILY_LABEL),()=>f.family,v=>f.family=v)));
+  g3.appendChild(labeled("太さ",selInput([["400","標準"],["700","太字"],["900","極太"]],()=>f.weight,v=>f.weight=v)));
+  g3.appendChild(labeled("横揃え",selInput([["left","左"],["center","中央"],["right","右"]],()=>f.align,v=>f.align=v)));
+  g3.appendChild(labeled("縦揃え",selInput([["top","上"],["middle","中央"],["bottom","下"]],()=>f.valign,v=>f.valign=v)));
+  panel.appendChild(g3);
+
+  const g4=el("div",{className:"g4",style:"margin-top:8px"});
+  g4.appendChild(labeled("組み方向",selInput([["h","横書き"],["v","縦書き"],["rot","回転1行"]],()=>f.orient,v=>f.orient=v)));
+  g4.appendChild(labeled("回転角",numInput(()=>f.rotate,v=>f.rotate=v,15)));
+  g4.appendChild(labeled("文字色",colorInput(()=>f.color,v=>f.color=v)));
+  g4.appendChild(labeled("フチ色",colorInput(()=>f.strokeColor,v=>f.strokeColor=v)));
+  panel.appendChild(g4);
+
+  const g5=el("div",{className:"g2",style:"margin-top:8px"});
+  g5.appendChild(labeled("フチの太さ（0=自動）",numInput(()=>f.stroke,v=>f.stroke=v)));
+  g5.appendChild(labeled("空欄時に吸収する項目",selInput(
+    [["","なし"]].concat(t.fields.filter(x=>x.id!==f.id).map(x=>[x.id,x.label])),
+    ()=>f.growIfEmpty||"", v=>f.growIfEmpty=v||null)));
+  panel.appendChild(g5);
+
+  panel.appendChild(el("div",{style:"margin-top:8px"},[
+    checkInput("枠に合わせて自動で大きさを変える",()=>f.autofit,v=>f.autofit=v),
+    checkInput("複数行（効果テキストなど）",()=>f.multiline,v=>f.multiline=v),
+    checkInput("カード入力モードに表示する",()=>f.input,v=>f.input=v),
+    checkInput("この項目を描画する",()=>f.visible,v=>f.visible=v)
+  ]));
+}
+
+/* サムネ更新を間引く */
+let thumbTimer=null;
+function scheduleThumb(){ clearTimeout(thumbTimer); thumbTimer=setTimeout(buildStrip,400); }
+
+/* ══════════════════════════════════════════════
+   メニューシート
+   ══════════════════════════════════════════════ */
+const sheet=document.getElementById("sheet");
+const sheetBody=document.getElementById("sheetBody");
+document.getElementById("sheetClose").onclick=()=>sheet.classList.remove("show");
+sheet.onclick=e=>{ if(e.target===sheet) sheet.classList.remove("show"); };
+
+function openMenu(){
+  const t=tpl();
+  sheetBody.textContent="";
+  sheetBody.appendChild(el("h2",{textContent:"メニュー"}));
+
+  /* テンプレート */
+  sheetBody.appendChild(el("h3",{className:"sec",textContent:"テンプレート"}));
+  S.templates.forEach((tt,i)=>{
+    const r=el("div",{className:"tplrow"+(i===S.tplIdx?" on":"")});
+    const nm=el("input",{type:"text",value:tt.name,className:"tplname"});
+    nm.oninput=()=>{ tt.name=nm.value; persist(); };
+    r.appendChild(nm);
+    if(tt.preset) r.appendChild(el("span",{className:"tplbadge",textContent:"カード内容あり"}));
+
+    const bs=el("div",{className:"tplbtns"});
+    bs.appendChild(el("button",{className:"btn",textContent:i===S.tplIdx?"使用中":"使う",onclick:()=>{
+      S.tplIdx=i; card().tplId=tt.id;
+      S.selTplField=tt.fields[0]?.id||""; buildNav(); render(); buildStrip(); buildPanel(); persist();
+      sheet.classList.remove("show"); toast("「"+tt.name+"」を適用しました");
+    }}));
+    bs.appendChild(el("button",{className:"btn ghost",textContent:"複製",onclick:()=>{
+      const cp=JSON.parse(JSON.stringify(tt)); cp.id=uid(); cp.name=tt.name+" のコピー";
+      S.templates.push(cp); persist(); openMenu(); toast("複製しました");
+    }}));
+    const delBtn=el("button",{className:"btn danger",textContent:"削除"});
+    armBtn(delBtn,"本当に削除",()=>{
+      if(S.templates.length<=1){ toast("最後の1つは削除できません"); return; }
+      const removedId=tt.id;
+      S.templates.splice(i,1);
+      if(S.tplIdx>=S.templates.length) S.tplIdx=S.templates.length-1;
+      if(S.tplIdx<0) S.tplIdx=0;
+      S.cards.forEach(c=>{ if(c.tplId===removedId||!S.templates.find(x=>x.id===c.tplId)) c.tplId=tpl().id; });
+      S.selTplField=tpl().fields[0]?.id||"";
+      buildNav(); render(); buildStrip(); buildPanel(); persist(); openMenu();
+      toast("テンプレートを削除しました");
+    });
+    bs.appendChild(delBtn);
+    r.appendChild(bs);
+
+    if(tt.preset){
+      const ck=el("div",{className:"tplchk"});
+      const mkChk=(text,key)=>{
+        const i=el("input",{type:"checkbox"}); i.checked=!!tt[key];
+        i.onchange=()=>{ tt[key]=i.checked; persist(); };
+        return el("label",{},[i,document.createTextNode(text)]);
+      };
+      ck.appendChild(mkChk("文字も複製","useText"));
+      ck.appendChild(mkChk("画像も複製","useArt"));
+      r.appendChild(ck);
+    }
+    sheetBody.appendChild(r);
+  });
+  sheetBody.appendChild(el("p",{className:"note",style:"margin:2px 0 9px",
+    textContent:"「カード内容あり」のテンプレートは、＋で新しいカードを作るときに文字と画像を引き継げます（チェックした分だけ）。"}));
+
+  const trow=el("div",{className:"g3"});
+  trow.appendChild(el("button",{className:"btn sm",textContent:"新規作成",onclick:()=>{
+    const nt=defaultTemplate("テンプレート"+(S.templates.length+1));
+    S.templates.push(nt); persist(); openMenu();
+  }}));
+  trow.appendChild(el("button",{className:"btn sm",textContent:"書き出し",onclick:()=>{
+    downloadBlob(new Blob([JSON.stringify(t,null,2)],{type:"application/json"}),
+      (t.name||"template")+".json");
+  }}));
+  const imp=el("label",{className:"btn sm",style:"cursor:pointer;justify-content:center"},
+    [document.createTextNode("取り込み")]);
+  const impf=el("input",{type:"file",accept:"application/json",className:"hidden"});
+  impf.onchange=()=>{
+    const fl=impf.files[0]; if(!fl) return;
+    const r=new FileReader();
+    r.onload=()=>{
+      try{
+        const d=JSON.parse(r.result);
+        if(!Array.isArray(d.fields)) throw 0;
+        d.id=uid(); S.templates.push(d); persist(); openMenu(); toast("取り込みました");
+      }catch(e){ alert("テンプレートとして読めませんでした。"); }
+    };
+    r.readAsText(fl);
+  };
+  imp.appendChild(impf);
+  trow.appendChild(imp);
+  sheetBody.appendChild(trow);
+
+  /* 色 */
+  sheetBody.appendChild(el("h3",{className:"sec",textContent:"色"}));
+  const chips=el("div",{className:"chips"});
+  Object.keys(CIVS).forEach(k=>{
+    const b=el("button",{className:"chip"+(t.opts.civ===k?" on":""),textContent:k});
+    b.onclick=()=>{ t.opts.civ=k; t.opts.colors.border=CIVS[k].border; t.opts.colors.bar=CIVS[k].bar;
+      render(); buildStrip(); persist(); openMenu(); };
+    chips.appendChild(b);
+  });
+  sheetBody.appendChild(chips);
+  const cg=el("div",{className:"g3",style:"margin-top:9px"});
+  cg.appendChild(labeled("外周",colorInput(()=>t.opts.colors.border,v=>{t.opts.colors.border=v;buildStrip();})));
+  cg.appendChild(labeled("下地",colorInput(()=>t.opts.colors.bar,v=>{t.opts.colors.bar=v;buildStrip();})));
+  cg.appendChild(labeled("罫線",colorInput(()=>t.opts.colors.line,v=>{t.opts.colors.line=v;buildStrip();})));
+  sheetBody.appendChild(cg);
+
+  /* フルフレーム設定 */
+  sheetBody.appendChild(el("h3",{className:"sec",textContent:"フルフレームの見え方"}));
+  sheetBody.appendChild(checkInput("コストの六角形を残す",()=>t.opts.keepHex,v=>t.opts.keepHex=v));
+  sheetBody.appendChild(checkInput("効果テキストに下地を敷く",()=>t.opts.panel,v=>t.opts.panel=v));
+  const pa=el("input",{type:"range",min:"0",max:"1",step:"0.02",value:String(t.opts.panelAlpha)});
+  pa.oninput=()=>{ t.opts.panelAlpha=Number(pa.value); render(); persist(); };
+  sheetBody.appendChild(labeled("下地の不透明度",pa));
+  sheetBody.appendChild(labeled("下地の色",colorInput(()=>t.opts.panelColor,v=>t.opts.panelColor=v)));
+  sheetBody.appendChild(checkInput("文字に白フチを自動で付ける",()=>t.opts.autoStroke,v=>t.opts.autoStroke=v));
+
+  /* 出力 */
+  sheetBody.appendChild(el("h3",{className:"sec",textContent:"出力"}));
+  sheetBody.appendChild(checkInput("仕上がり線を表示（画面だけ・画像には入らない）",()=>t.opts.trimLine,v=>{t.opts.trimLine=v;buildStrip();}));
+  const og=el("div",{className:"g2"});
+  og.appendChild(labeled("解像度",selInput([["0.75","300dpi"],["1","400dpi"],["1.5","600dpi"]],
+    ()=>String(S.scale),v=>S.scale=Number(v))));
+  og.appendChild(labeled("裁ち",selInput([["bleed","塗り足しあり 69×94mm"],["trim","仕上がり 63×88mm"]],
+    ()=>S.cut,v=>S.cut=v)));
+  sheetBody.appendChild(og);
+  sheetBody.appendChild(el("button",{className:"btn primary",style:"width:100%;margin-top:9px",
+    textContent:`全${S.cards.length}枚をZIPで書き出す`,onclick:exportZip}));
+
+  /* カード操作 */
+  sheetBody.appendChild(el("h3",{className:"sec",textContent:"このカード"}));
+  sheetBody.appendChild(el("button",{className:"btn sm",style:"width:100%;margin-bottom:7px",
+    textContent:"このカードをテンプレートにする",onclick:()=>{
+      const cd=card();
+      const nt=JSON.parse(JSON.stringify(tpl()));
+      nt.id=uid();
+      nt.name=((cd.values.name||"").trim()||"無題")+" のテンプレート";
+      nt.preset={
+        values:JSON.parse(JSON.stringify(cd.values||{})),
+        ov:JSON.parse(JSON.stringify(cd.ov||{})),
+        art:Object.assign({src:null,zoom:1,x:0,y:0},cd.art||{}),
+        full:!!cd.full
+      };
+      nt.useText=false; nt.useArt=false;
+      S.templates.push(nt); S.tplIdx=S.templates.length-1; card().tplId=nt.id;
+      buildNav(); render(); buildStrip(); buildPanel(); persist(); openMenu();
+      toast("テンプレートにしました");
+    }}));
+
+  const cgb=el("div",{className:"g3"});
+  cgb.appendChild(el("button",{className:"btn sm",textContent:"複製",onclick:()=>{
+    const cp=JSON.parse(JSON.stringify(card())); cp.id=uid();
+    S.cards.splice(S.cardIdx+1,0,cp); S.cardIdx++;
+    render(); buildStrip(); buildPanel(); persist(); sheet.classList.remove("show");
+  }}));
+  cgb.appendChild(el("button",{className:"btn sm",textContent:"データ書き出し",onclick:()=>{
+    downloadBlob(new Blob([JSON.stringify({templates:S.templates,cards:S.cards},null,2)],
+      {type:"application/json"}),"proxymaker-data.json");
+  }}));
+  const cardDel=el("button",{className:"btn sm danger",textContent:"削除"});
+  armBtn(cardDel,"本当に削除",()=>{
+    if(S.cards.length<=1){ toast("最後の1枚は削除できません"); return; }
+    S.cards.splice(S.cardIdx,1);
+    S.cardIdx=Math.max(0,Math.min(S.cardIdx,S.cards.length-1));
+    render(); buildStrip(); buildPanel(); persist(); sheet.classList.remove("show");
+    toast("カードを削除しました");
+  });
+  cgb.appendChild(cardDel);
+  sheetBody.appendChild(cgb);
+
+  const impAll=el("label",{className:"btn sm ghost",style:"cursor:pointer;justify-content:center;width:100%;margin-top:7px"},
+    [document.createTextNode("データ取り込み（全上書き）")]);
+  const impAllF=el("input",{type:"file",accept:"application/json",className:"hidden"});
+  impAllF.onchange=()=>{
+    const fl=impAllF.files[0]; if(!fl) return;
+    const r=new FileReader();
+    r.onload=async()=>{
+      try{
+        const d=JSON.parse(r.result);
+        if(!Array.isArray(d.templates)||!Array.isArray(d.cards)) throw 0;
+        S.templates=d.templates; S.cards=d.cards; S.tplIdx=0; S.cardIdx=0;
+        await Promise.all(S.cards.map(c=>loadArt(c.art&&c.art.src)));
+        S.selTplField=tpl().fields[0]?.id||""; S.selField="name";
+        buildNav(); render(); buildStrip(); buildPanel(); persist();
+        sheet.classList.remove("show"); toast("取り込みました");
+      }catch(e){ alert("データとして読めませんでした。"); }
+    };
+    r.readAsText(fl);
+  };
+  impAll.appendChild(impAllF);
+  sheetBody.appendChild(impAll);
+
+  sheet.classList.add("show");
+}
+document.getElementById("btnMenu").onclick=openMenu;
+
+/* ══════════════════════════════════════════════
+   書き出し
+   ══════════════════════════════════════════════ */
+function cardName(cd,i){
+  const n=(cd.values.name||"card").replace(/[\\/:*?"<>|\n\r]/g,"_").trim()||"card";
+  return String(i+1).padStart(2,"0")+"_"+n;
+}
+function renderToCanvas(cd){
+  const t=S.templates.find(x=>x.id===cd.tplId)||tpl();
+  const crop=S.cut==="trim";
+  const w=crop?CARD_W-BLEED*2:CARD_W, h=crop?CARD_H-BLEED*2:CARD_H;
+  const c=document.createElement("canvas");
+  c.width=Math.round(w*S.scale); c.height=Math.round(h*S.scale);
+  drawCard(c.getContext("2d"),S.scale,t,cd,crop);
+  return c;
+}
+function downloadBlob(blob,name){
+  const a=document.createElement("a");
+  a.href=URL.createObjectURL(blob); a.download=name; a.click();
+  setTimeout(()=>URL.revokeObjectURL(a.href),2000);
+}
+const saveBox=document.getElementById("save");
+document.getElementById("btnSave").onclick=()=>{
+  const c=renderToCanvas(card());
+  c.toBlob(b=>{
+    const url=URL.createObjectURL(b);
+    saveImg.src=url; saveDl.href=url; saveDl.download=cardName(card(),S.cardIdx)+".png";
+    saveBox.classList.add("show");
+  },"image/png");
+};
+document.getElementById("saveClose").onclick=()=>{
+  saveBox.classList.remove("show"); URL.revokeObjectURL(saveImg.src);
+};
+
+async function loadJSZip(){
+  if(window.JSZip) return;
+  await new Promise((res,rej)=>{
+    const s=document.createElement("script");
+    s.src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js";
+    s.onload=res; s.onerror=rej; document.head.appendChild(s);
+  });
+}
+async function exportZip(){
+  try{ await loadJSZip(); }
+  catch(e){ alert("ZIP用のライブラリを読み込めませんでした（オフラインの可能性）。1枚ずつ保存してください。"); return; }
+  toast("書き出し中…");
+  const zip=new JSZip();
+  for(let i=0;i<S.cards.length;i++){
+    const cd=S.cards[i];
+    await loadArt(cd.art.src);
+    const c=renderToCanvas(cd);
+    const blob=await new Promise(r=>c.toBlob(r,"image/png"));
+    zip.file(cardName(cd,i)+".png",blob);
+  }
+  const out=await zip.generateAsync({type:"blob"});
+  downloadBlob(out,"proxy-cards.zip");
+  sheet.classList.remove("show");
+  toast(S.cards.length+"枚を書き出しました");
+}
+
+/* 画像を縮小してdataURL化（保存容量対策） */
+function shrinkImage(file,maxSide){
+  return new Promise(res=>{
+    const r=new FileReader();
+    r.onload=()=>{
+      const im=new Image();
+      im.onload=()=>{
+        const s=Math.min(1,maxSide/Math.max(im.width,im.height));
+        if(s>=1){ res(r.result); return; }
+        const c=document.createElement("canvas");
+        c.width=Math.round(im.width*s); c.height=Math.round(im.height*s);
+        c.getContext("2d").drawImage(im,0,0,c.width,c.height);
+        res(c.toDataURL("image/jpeg",0.9));
+      };
+      im.onerror=()=>res(r.result);
+      im.src=r.result;
+    };
+    r.readAsDataURL(file);
+  });
+}
+
+/* ══════════════════════════════════════════════
+   モード切替
+   ══════════════════════════════════════════════ */
+const tabCard=document.getElementById("tabCard"), tabTpl=document.getElementById("tabTpl");
+function setMode(m){
+  S.mode=m;
+  tabCard.classList.toggle("on",m==="card");
+  tabTpl.classList.toggle("on",m==="tpl");
+  if(m==="tpl" && !tpl().fields.find(f=>f.id===S.selTplField))
+    S.selTplField=tpl().fields[0]?.id||"";
+  buildNav(); buildStrip(); render(); buildPanel();
+}
+tabCard.onclick=()=>setMode("card");
+tabTpl.onclick=()=>setMode("tpl");
+
+/* 2段階確認：ネイティブの confirm はサンドボックス環境で効かないことがあるため使わない */
+function armBtn(btn,armedText,action){
+  const orig=btn.textContent;
+  let armed=false,t=null;
+  const reset=()=>{ armed=false; btn.textContent=orig; btn.classList.remove("armed"); };
+  btn.onclick=e=>{
+    e.preventDefault(); e.stopPropagation();
+    if(!armed){
+      armed=true; btn.textContent=armedText; btn.classList.add("armed");
+      clearTimeout(t); t=setTimeout(reset,4000);
+      return;
+    }
+    clearTimeout(t); reset(); action();
+  };
+  return btn;
+}
+
+/* トースト */
+const toastEl=document.getElementById("toast");
+let toastT=null;
+function toast(msg){
+  toastEl.textContent=msg; toastEl.classList.add("show");
+  clearTimeout(toastT); toastT=setTimeout(()=>toastEl.classList.remove("show"),1800);
+}
+
+/* キーボード表示時に高さを合わせる */
+if(window.visualViewport){
+  const app=document.getElementById("app");
+  const fit=()=>{ app.style.height=window.visualViewport.height+"px"; try{fitStage();}catch(e){} };
+  window.visualViewport.addEventListener("resize",fit);
+  fit();
+}
+
+/* ══════════════════════════════════════════════
+   起動
+   ══════════════════════════════════════════════ */
+async function boot(){
+  let st=null;
+  try{ st=await kvGet("state"); }catch(e){}
+  if(st && Array.isArray(st.templates) && st.templates.length && Array.isArray(st.cards) && st.cards.length){
+    S.templates=st.templates; S.cards=st.cards;
+    S.tplIdx=Math.min(st.tplIdx||0,S.templates.length-1);
+    S.cardIdx=Math.min(st.cardIdx||0,S.cards.length-1);
+    await Promise.all(S.cards.map(c=>loadArt(c.art&&c.art.src)));
+  }else{
+    const t=defaultTemplate();
+    S.templates=[t];
+    S.cards=[defaultCard(t.id)];
+  }
+  for(const c of S.cards) if(!c.ov) c.ov={};
+  S.selTplField=tpl().fields[0]?.id||"";
+  S.selField="name";
+  setMode("card");
+  if(document.fonts && document.fonts.ready){
+    document.fonts.ready.then(()=>{ fitCache.clear(); render(); buildStrip(); });
+  }
+}
+boot();
+</script>
+</body>
+</html>
